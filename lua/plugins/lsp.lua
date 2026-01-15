@@ -27,8 +27,55 @@ return {
 				variableTypeWhenTypeMatchesNames = { enabled = true },
 			}
 
+			local projects_with_disabled_formatting = {
+				"lightfunnels-front",
+				"lightfunnels",
+				"lightfunnels-partners",
+				"flowier-v2",
+				"lfapp-shopify-products",
+			}
+
+			local function path_matches_disabled_project(path)
+				if not path or path == "" then
+					return false
+				end
+				local normalized = path:lower()
+				for _, project in ipairs(projects_with_disabled_formatting) do
+					if normalized:find(project:lower(), 1, true) then
+						return true
+					end
+				end
+				return false
+			end
+
+			local function should_disable_formatting(client, buffer_number)
+				if path_matches_disabled_project(vim.api.nvim_buf_get_name(buffer_number)) then
+					return true
+				end
+
+				if client and client.config and path_matches_disabled_project(client.config.root_dir) then
+					return true
+				end
+
+				if path_matches_disabled_project(vim.loop.cwd()) then
+					return true
+				end
+
+				return false
+			end
+
 			-- on_attach: call your custom keymap binding function
-			local on_attach = function(_client, buffer_number)
+			local on_attach = function(client, buffer_number)
+				if should_disable_formatting(client, buffer_number) then
+					vim.b[buffer_number].disable_autoformat = true
+					if client and client.server_capabilities then
+						client.server_capabilities.documentFormattingProvider = false
+						client.server_capabilities.documentRangeFormattingProvider = false
+					end
+				else
+					vim.b[buffer_number].disable_autoformat = false
+				end
+
 				map_lsp_keybinds(buffer_number)
 			end
 
